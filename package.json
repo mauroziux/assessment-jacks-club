@@ -1,0 +1,23 @@
+{
+  "name": "assessment-jacks-club",
+  "version": "1.0.0",
+  "description": "Developer assessment for Jack's Club - balance and transaction functions with DynamoDB",
+  "main": "src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "tsx": "^4.7.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.500.0",
+    "@aws-sdk/lib-dynamodb": "^3.500.0"
+  }
+}
