@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { transact } from '../transact';
-import { TRANSACTION_TYPE } from '../constants';
-import { ddb } from '../db';
-import { TransactWriteCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { transact } from "../transact";
+import { TRANSACTION_TYPE } from "../constants";
+import { ddb } from "../db";
+import { TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 
 // Mock ddb.send
-vi.mock('../db', () => {
+vi.mock("../db", () => {
   return {
     ddb: {
       send: vi.fn(),
@@ -13,9 +13,9 @@ vi.mock('../db', () => {
   };
 });
 
-const ddbSend = (ddb.send as unknown as ReturnType<typeof vi.fn>);
+const ddbSend = ddb.send as unknown as ReturnType<typeof vi.fn>;
 
-describe('transact', () => {
+describe("transact", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -26,116 +26,191 @@ describe('transact', () => {
   }
 
   function mockIdempotencyFound() {
-    ddbSend.mockResolvedValueOnce({ Item: { PK: 'IDEMPOTENT#key1' } });
+    ddbSend.mockResolvedValueOnce({ Item: { PK: "IDEMPOTENT#key1" } });
   }
 
-  it('throws error for missing idempotentKey', async () => {
+  it("throws error for missing idempotentKey", async () => {
     await expect(
-      transact({ userId: 'u', amount: 10, type: TRANSACTION_TYPE.CREDIT, idempotentKey: '' })
-    ).rejects.toThrow('Invalid idempotentKey');
+      transact({
+        userId: "u",
+        amount: 10,
+        type: TRANSACTION_TYPE.CREDIT,
+        idempotentKey: "",
+      }),
+    ).rejects.toThrow("Invalid idempotentKey");
   });
 
-  it('throws error for missing userId', async () => {
+  it("throws error for missing userId", async () => {
     await expect(
-      transact({ userId: '', amount: 10, type: TRANSACTION_TYPE.CREDIT, idempotentKey: 'key' })
-    ).rejects.toThrow('Invalid userId');
+      transact({
+        userId: "",
+        amount: 10,
+        type: TRANSACTION_TYPE.CREDIT,
+        idempotentKey: "key",
+      }),
+    ).rejects.toThrow("Invalid userId");
   });
 
-  it('throws error for invalid amount (zero, negative, NaN, not a number)', async () => {
+  it("throws error for invalid amount (zero, negative, NaN, not a number)", async () => {
     await expect(
-      transact({ userId: 'u', amount: 0, type: TRANSACTION_TYPE.CREDIT, idempotentKey: 'key' })
-    ).rejects.toThrow('Invalid amount');
+      transact({
+        userId: "u",
+        amount: 0,
+        type: TRANSACTION_TYPE.CREDIT,
+        idempotentKey: "key",
+      }),
+    ).rejects.toThrow("Invalid amount");
     await expect(
-      transact({ userId: 'u', amount: -5, type: TRANSACTION_TYPE.CREDIT, idempotentKey: 'key' })
-    ).rejects.toThrow('Invalid amount');
+      transact({
+        userId: "u",
+        amount: -5,
+        type: TRANSACTION_TYPE.CREDIT,
+        idempotentKey: "key",
+      }),
+    ).rejects.toThrow("Invalid amount");
     await expect(
-      transact({ userId: 'u', amount: 'notanumber', type: TRANSACTION_TYPE.CREDIT, idempotentKey: 'key' })
-    ).rejects.toThrow('Invalid amount');
+      transact({
+        userId: "u",
+        amount: "notanumber",
+        type: TRANSACTION_TYPE.CREDIT,
+        idempotentKey: "key",
+      }),
+    ).rejects.toThrow("Invalid amount");
     await expect(
-      transact({ userId: 'u', amount: NaN, type: TRANSACTION_TYPE.CREDIT, idempotentKey: 'key' })
-    ).rejects.toThrow('Invalid amount');
+      transact({
+        userId: "u",
+        amount: NaN,
+        type: TRANSACTION_TYPE.CREDIT,
+        idempotentKey: "key",
+      }),
+    ).rejects.toThrow("Invalid amount");
   });
 
-  it('throws error for invalid type', async () => {
+  it("throws error for invalid type", async () => {
     await expect(
-      transact({ userId: 'u', amount: 10, type: 'invalid' as any, idempotentKey: 'key' })
-    ).rejects.toThrow('Invalid type');
+      transact({
+        userId: "u",
+        amount: 10,
+        type: "invalid",
+        idempotentKey: "key",
+      }),
+    ).rejects.toThrow("Invalid type");
   });
 
-  it('throws error if idempotency key already exists', async () => {
+  it("throws error if idempotency key already exists", async () => {
     mockIdempotencyFound();
     await expect(
-      transact({ userId: 'u', amount: 10, type: TRANSACTION_TYPE.CREDIT, idempotentKey: 'key1' })
-    ).rejects.toThrow('Transaction already processed');
+      transact({
+        userId: "u",
+        amount: 10,
+        type: TRANSACTION_TYPE.CREDIT,
+        idempotentKey: "key1",
+      }),
+    ).rejects.toThrow("Transaction already processed");
   });
 
-  it('processes a credit transaction successfully', async () => {
+  it("processes a credit transaction successfully", async () => {
     mockIdempotencyNotFound();
     ddbSend.mockResolvedValueOnce({}); // TransactWriteCommand
     await expect(
-      transact({ userId: '1', amount: '10', type: TRANSACTION_TYPE.CREDIT, idempotentKey: '1' })
+      transact({
+        userId: "1",
+        amount: "10",
+        type: TRANSACTION_TYPE.CREDIT,
+        idempotentKey: "1",
+      }),
     ).resolves.toBeUndefined();
     expect(ddbSend).toHaveBeenCalledWith(expect.any(TransactWriteCommand));
   });
 
-  it('processes a debit transaction successfully', async () => {
+  it("processes a debit transaction successfully", async () => {
     mockIdempotencyNotFound();
     ddbSend.mockResolvedValueOnce({}); // TransactWriteCommand
     await expect(
-      transact({ userId: 'u', amount: 10, type: TRANSACTION_TYPE.DEBIT, idempotentKey: 'key3' })
+      transact({
+        userId: "u",
+        amount: 10,
+        type: TRANSACTION_TYPE.DEBIT,
+        idempotentKey: "key3",
+      }),
     ).resolves.toBeUndefined();
     expect(ddbSend).toHaveBeenCalledWith(expect.any(TransactWriteCommand));
   });
 
-  it('throws error if TransactWriteCommand fails with TransactionCanceledException and ConditionalCheckFailed', async () => {
+  it("throws error if TransactWriteCommand fails with TransactionCanceledException and ConditionalCheckFailed", async () => {
     mockIdempotencyNotFound();
-    const err = new Error('Conditional check failed');
-    (err as any).name = 'TransactionCanceledException';
-    (err as any).CancellationReasons = [{ Code: 'ConditionalCheckFailed' }];
+    const err = new Error("Conditional check failed");
+    (err as any).name = "TransactionCanceledException";
+    (err as any).CancellationReasons = [{ Code: "ConditionalCheckFailed" }];
     ddbSend.mockRejectedValueOnce(err);
     await expect(
-      transact({ userId: 'u', amount: 999, type: TRANSACTION_TYPE.DEBIT, idempotentKey: 'key4' })
-    ).rejects.toThrow('Transaction failed: Conditional check failed');
+      transact({
+        userId: "u",
+        amount: 999,
+        type: TRANSACTION_TYPE.DEBIT,
+        idempotentKey: "key4",
+      }),
+    ).rejects.toThrow("Transaction failed: Conditional check failed");
   });
 
-  it('throws error if TransactWriteCommand fails with TransactionCanceledException and unknown reason', async () => {
+  it("throws error if TransactWriteCommand fails with TransactionCanceledException and unknown reason", async () => {
     mockIdempotencyNotFound();
-    const err = new Error('Some other failure');
-    (err as any).name = 'TransactionCanceledException';
-    (err as any).CancellationReasons = [{ Message: 'Some other failure' }];
+    const err = new Error("Some other failure");
+    (err as any).name = "TransactionCanceledException";
+    (err as any).CancellationReasons = [{ Message: "Some other failure" }];
     ddbSend.mockRejectedValueOnce(err);
     await expect(
-      transact({ userId: 'u', amount: 10, type: TRANSACTION_TYPE.DEBIT, idempotentKey: 'key5' })
-    ).rejects.toThrow('Transaction failed: Some other failure');
+      transact({
+        userId: "u",
+        amount: 10,
+        type: TRANSACTION_TYPE.DEBIT,
+        idempotentKey: "key5",
+      }),
+    ).rejects.toThrow("Transaction failed: Some other failure");
   });
 
-  it('throws error for insufficient funds on debit', async () => {
+  it("throws error for insufficient funds on debit", async () => {
     mockIdempotencyNotFound();
-    const err = new Error('Conditional check failed');
-    (err as any).name = 'TransactionCanceledException';
-    (err as any).CancellationReasons = [{ Code: 'ConditionalCheckFailed' }];
+    const err = new Error("Conditional check failed");
+    (err as any).name = "TransactionCanceledException";
+    (err as any).CancellationReasons = [{ Code: "ConditionalCheckFailed" }];
     ddbSend.mockRejectedValueOnce(err);
 
     await expect(
-      transact({ userId: 'u', amount: 999, type: TRANSACTION_TYPE.DEBIT, idempotentKey: 'key4' })
-    ).rejects.toThrow('Transaction failed: Conditional check failed');
+      transact({
+        userId: "u",
+        amount: 999,
+        type: TRANSACTION_TYPE.DEBIT,
+        idempotentKey: "key4",
+      }),
+    ).rejects.toThrow("Transaction failed: Conditional check failed");
   });
 
-  it('throws error if TransactWriteCommand fails with other AWS SDK error', async () => {
+  it("throws error if TransactWriteCommand fails with other AWS SDK error", async () => {
     mockIdempotencyNotFound();
-    const err = new Error('Some AWS error');
-    (err as any).name = 'SomeOtherException';
+    const err = new Error("Some AWS error");
+    (err as any).name = "SomeOtherException";
     ddbSend.mockRejectedValueOnce(err);
     await expect(
-      transact({ userId: 'u', amount: 10, type: TRANSACTION_TYPE.DEBIT, idempotentKey: 'key6' })
+      transact({
+        userId: "u",
+        amount: 10,
+        type: TRANSACTION_TYPE.DEBIT,
+        idempotentKey: "key6",
+      }),
     ).rejects.toThrow(/Unexpected DynamoDB error/);
   });
 
-  it('parses amount if given as string', async () => {
+  it("parses amount if given as string", async () => {
     mockIdempotencyNotFound();
     ddbSend.mockResolvedValueOnce({}); // TransactWriteCommand
     await expect(
-      transact({ userId: 'u', amount: '15', type: TRANSACTION_TYPE.CREDIT, idempotentKey: 'key7' })
+      transact({
+        userId: "u",
+        amount: "15",
+        type: TRANSACTION_TYPE.CREDIT,
+        idempotentKey: "key7",
+      }),
     ).resolves.toBeUndefined();
     expect(ddbSend).toHaveBeenCalledWith(expect.any(TransactWriteCommand));
   });

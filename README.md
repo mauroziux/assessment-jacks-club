@@ -123,6 +123,28 @@ Test files are located in `src/__tests__/`.
 
 ---
 
+## Code Formatting and Linting
+
+This project uses [Biome](https://biomejs.dev/) for code formatting and linting to ensure consistent code style and catch potential issues.
+
+### Format Code
+
+To automatically format the codebase, run:
+
+```sh
+bun run format
+```
+
+### Lint Code
+
+To lint the codebase and identify potential errors or style violations, run:
+
+```sh
+bun run lint
+```
+
+---
+
 ## Error Handling
 
 The `transact` function includes detailed error handling:
