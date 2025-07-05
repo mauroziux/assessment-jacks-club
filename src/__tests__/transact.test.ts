@@ -89,22 +89,36 @@ describe('transact', () => {
 
   it('throws error if TransactWriteCommand fails with TransactionCanceledException and ConditionalCheckFailed', async () => {
     mockIdempotencyNotFound();
-    const err = new Error('ConditionalCheckFailed');
+    const err = new Error('Conditional check failed');
     (err as any).name = 'TransactionCanceledException';
+    (err as any).CancellationReasons = [{ Code: 'ConditionalCheckFailed' }];
     ddbSend.mockRejectedValueOnce(err);
     await expect(
       transact({ userId: 'u', amount: 999, type: TRANSACTION_TYPE.DEBIT, idempotentKey: 'key4' })
-    ).rejects.toThrow(/Idempotent key already exists or insufficient balance/);
+    ).rejects.toThrow('Transaction failed: Conditional check failed');
   });
 
   it('throws error if TransactWriteCommand fails with TransactionCanceledException and unknown reason', async () => {
     mockIdempotencyNotFound();
     const err = new Error('Some other failure');
     (err as any).name = 'TransactionCanceledException';
+    (err as any).CancellationReasons = [{ Message: 'Some other failure' }];
     ddbSend.mockRejectedValueOnce(err);
     await expect(
       transact({ userId: 'u', amount: 10, type: TRANSACTION_TYPE.DEBIT, idempotentKey: 'key5' })
-    ).rejects.toThrow(/Unknown transaction failure/);
+    ).rejects.toThrow('Transaction failed: Some other failure');
+  });
+
+  it('throws error for insufficient funds on debit', async () => {
+    mockIdempotencyNotFound();
+    const err = new Error('Conditional check failed');
+    (err as any).name = 'TransactionCanceledException';
+    (err as any).CancellationReasons = [{ Code: 'ConditionalCheckFailed' }];
+    ddbSend.mockRejectedValueOnce(err);
+
+    await expect(
+      transact({ userId: 'u', amount: 999, type: TRANSACTION_TYPE.DEBIT, idempotentKey: 'key4' })
+    ).rejects.toThrow('Transaction failed: Conditional check failed');
   });
 
   it('throws error if TransactWriteCommand fails with other AWS SDK error', async () => {

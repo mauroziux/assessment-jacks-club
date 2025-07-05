@@ -1,10 +1,11 @@
 import {
   GetCommand,
-  TransactWriteCommand,
+  TransactWriteCommand, type TransactWriteCommandInput
 } from '@aws-sdk/lib-dynamodb';
 import { ddb } from './db';
-import type { TransactInput } from './types';
+import type { TransactInput, ValidatedTransactInput } from './types';
 import { IDEMPOTENCY_TABLE, TRANSACTION_TYPE, USER_TABLE } from './constants';
+import type { CancellationReason } from '@aws-sdk/client-dynamodb';
 
 // optional for validation we might implement Zod
 function validateTransactInput(input: TransactInput): void {
@@ -36,7 +37,7 @@ function validateTransactInput(input: TransactInput): void {
 export async function transact(input: TransactInput): Promise<void> {
   validateTransactInput(input)
 
-  const { userId, amount, type, idempotentKey } = input;
+  const { idempotentKey } = input;
 
   const existingTransact = await ddb.send(new GetCommand({
     TableName: IDEMPOTENCY_TABLE,
@@ -48,20 +49,26 @@ export async function transact(input: TransactInput): Promise<void> {
     throw new Error('Transaction already processed');
   }
 
-  const isCredit = type === TRANSACTION_TYPE.CREDIT;
+  const transactItems = buildTransactionItems(input as ValidatedTransactInput);
 
+  await executeTransaction(transactItems);
+}
+
+function buildTransactionItems(input: ValidatedTransactInput) {
+  const { userId, amount, type, idempotentKey } = input;
+  const isCredit = type === TRANSACTION_TYPE.CREDIT;
   const userKey = { PK: `USER#${userId}` };
   const idemKey = { PK: `IDEMPOTENT#${idempotentKey}` };
 
   const updateExpr = isCredit
-    ? 'SET balance = if_not_exists(balance, :start) + :amount'
-    : 'SET balance = balance - :amount';
+    ? "SET balance = if_not_exists(balance, :start) + :amount"
+    : "SET balance = balance - :amount";
 
   const conditionExpr = isCredit
     ? undefined
-    : 'attribute_exists(balance) AND balance >= :amount';
+    : "attribute_exists(balance) AND balance >= :amount";
 
-  const transactItems = [
+  return [
     {
       Update: {
         TableName: USER_TABLE,
@@ -69,8 +76,8 @@ export async function transact(input: TransactInput): Promise<void> {
         UpdateExpression: updateExpr,
         ConditionExpression: conditionExpr,
         ExpressionAttributeValues: {
-          ':amount': amount,
-          ':start': 100,
+          ":amount": amount,
+          ":start": 100,
         },
       },
     },
@@ -81,29 +88,37 @@ export async function transact(input: TransactInput): Promise<void> {
           ...idemKey,
           createdAt: new Date().toISOString(),
         },
-        ConditionExpression: 'attribute_not_exists(PK)',
+        ConditionExpression: "attribute_not_exists(PK)",
       },
     },
   ];
+}
 
+async function executeTransaction(transactItems: TransactWriteCommandInput['TransactItems']) {
   try {
     await ddb.send(
       new TransactWriteCommand({
         TransactItems: transactItems,
       })
     );
-  } catch (err) {
-    if (err.name === 'TransactionCanceledException') {
-      console.error('💥 Transaction failed:', err)
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "TransactionCanceledException") {
+      // Handle transaction cancellation
+      const cancellationReasons = (err as any).CancellationReasons || [];
+      const reason = cancellationReasons.map((r: CancellationReason) => {
+        if (r.Code === 'ConditionalCheckFailed') {
+          return 'Conditional check failed';
+        }
+        return r.Message || 'Unknown reason';
+      }).join(', ');
 
-      const reason = err.message.includes('ConditionalCheckFailed')
-        ? 'Idempotent key already exists or insufficient balance'
-        : 'Unknown transaction failure'
-
-      throw new Error(`Transaction failed: ${reason}`)
+      throw new Error(`Transaction failed: ${reason}`);
     }
 
-    // Any other AWS SDK errors
-    throw new Error(`Unexpected DynamoDB error: ${err.message}`)
+    // Re-throw unexpected errors
+    if (err instanceof Error) {
+      throw new Error(`Unexpected DynamoDB error: ${err.message}`);
+    }
+    throw new Error('An unexpected error occurred');
   }
 }

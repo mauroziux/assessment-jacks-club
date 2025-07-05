@@ -42,6 +42,7 @@ describe('getBalance', () => {
 
   it('throws error for invalid userId', async () => {
     await expect(getBalance({ userId: '' })).rejects.toThrow('Invalid userId');
+    await expect(getBalance({ userId: ' ' })).rejects.toThrow('Invalid userId');
     await expect(getBalance({ userId: undefined as any })).rejects.toThrow('Invalid userId');
     await expect(getBalance({ userId: 123 as any })).rejects.toThrow('Invalid userId');
   });
