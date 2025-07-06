@@ -33,6 +33,12 @@ Set the environment variable for local DynamoDB (optional):
 export DYNAMODB_ENDPOINT=http://localhost:8000
 ```
 
+After starting DynamoDB, create the necessary tables by running:
+
+```sh
+bun run setup-db
+```
+
 ### 3. Build the project
 
 To compile the TypeScript code to JavaScript, run:
@@ -116,7 +122,7 @@ Run all unit tests with:
 ```sh
 npm test
 # or
-bunx run test
+bun run test
 ```
 
 Test files are located in `src/__tests__/`.

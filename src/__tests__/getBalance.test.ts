@@ -52,7 +52,7 @@ describe("getBalance", () => {
 	it("throws error if ddb.send throws", async () => {
 		ddbSend.mockRejectedValueOnce(new Error("DDB error"));
 		await expect(getBalance({ userId: "user4" })).rejects.toThrow(
-			"Could not retrieve user balance",
+			"Could not retrieve balance for user user4: DDB error",
 		);
 	});
 });

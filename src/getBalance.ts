@@ -11,7 +11,7 @@ export async function getBalance({ userId }: GetBalanceInput): Promise<number> {
 		const result = await ddb.send(
 			new GetCommand({
 				TableName: USER_TABLE,
-				Key: { PK: `USER#${userId}` },
+				Key: { PK: `USER#${userId}` }, // or just { userId } if we are not following single table design
 			}),
 		);
 
@@ -22,7 +22,7 @@ export async function getBalance({ userId }: GetBalanceInput): Promise<number> {
 
 		return result.Item.balance ?? 100;
 	} catch (err: unknown) {
-		console.error("Failed to retrieve user balance:", err);
+		console.error(`Failed to retrieve balance for user ${userId}:`, err);
 		if (err instanceof Error) {
 			throw new Error(
 				`Could not retrieve balance for user ${userId}: ${err.message}`,

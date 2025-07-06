@@ -7,7 +7,8 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"format": "biome format --write .",
-		"lint": "biome lint ."
+		"lint": "biome lint .",
+		"setup-db": "bun run scripts/setup-db.ts"
 	},
 	"author": "Mauricio Suarez Vega",
 	"license": "MIT",

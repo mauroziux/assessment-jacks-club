@@ -6,7 +6,10 @@ import {
 import { ddb } from "./db";
 import type { TransactInput, ValidatedTransactInput } from "./types";
 import { IDEMPOTENCY_TABLE, TRANSACTION_TYPE, USER_TABLE } from "./constants";
-import type { CancellationReason } from "@aws-sdk/client-dynamodb";
+import type {
+	CancellationReason,
+	TransactionCanceledException,
+} from "@aws-sdk/client-dynamodb";
 
 // optional for validation we might implement Zod
 function validateTransactInput(input: TransactInput): void {
@@ -112,7 +115,8 @@ async function executeTransaction(
 	} catch (err: unknown) {
 		if (err instanceof Error && err.name === "TransactionCanceledException") {
 			// Handle transaction cancellation
-			const cancellationReasons = (err as any).CancellationReasons || [];
+			const cancellationReasons =
+				(err as TransactionCanceledException).CancellationReasons || [];
 			const reason = cancellationReasons
 				.map((r: CancellationReason) => {
 					if (r.Code === "ConditionalCheckFailed") {
