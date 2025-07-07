@@ -77,6 +77,15 @@ function buildTransactionItems(input: ValidatedTransactInput) {
 		? undefined
 		: "attribute_exists(balance) AND balance >= :amount";
 
+	const expressionAttributeValues = isCredit
+		? {
+				":amount": amount,
+				":start": 100,
+			}
+		: {
+				":amount": amount,
+			};
+
 	return [
 		{
 			Update: {
@@ -84,10 +93,7 @@ function buildTransactionItems(input: ValidatedTransactInput) {
 				Key: userKey,
 				UpdateExpression: updateExpr,
 				ConditionExpression: conditionExpr,
-				ExpressionAttributeValues: {
-					":amount": amount,
-					":start": 100,
-				},
+				ExpressionAttributeValues: expressionAttributeValues,
 			},
 		},
 		{
